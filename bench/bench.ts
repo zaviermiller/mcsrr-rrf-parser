@@ -1,12 +1,14 @@
 // Times parseReplay() and measures its memory on every replay in a folder, against the file size.
-// usage: node bench/bench.ts [runs=5] [--dir bench/replays] [--limit N]
+// usage: node bench/bench.ts [runs=5] [--dir bench/replays] [--limit N] [--jobs N]
 // Writes bench/results.csv, bench/parse-time.svg and bench/memory.svg.
+// --jobs runs the memory measurements in N worker processes. Parse times are always measured afterwards, one file at
+// a time, because concurrent parses slow each other down (about 25% with 4 workers).
 //
 // Memory per replay:
 // - retained: heap + ArrayBuffer bytes still held by the returned Replay (measured after a forced GC).
 // - peak RSS: how much one parse raised the process's peak RSS, measured in a fresh child process
 //   (bench/mem-child.ts) so earlier files don't hide it. This includes garbage created during the parse.
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -19,8 +21,11 @@ import { readZip } from '../src/container.ts';
 
 const { values: args, positionals } = parseArgs({
   allowPositionals: true,
-  options: { dir: { type: 'string' }, limit: { type: 'string' } },
+  options: { dir: { type: 'string' }, limit: { type: 'string' }, jobs: { type: 'string' }, shard: { type: 'string' } },
 });
+const jobs = Math.max(1, Number(args.jobs ?? 1));
+// Set on worker processes spawned by --jobs: measure every jobs-th file starting at this index.
+const shard = args.shard === undefined ? null : Number(args.shard);
 const runs = Number(positionals[0] ?? 5);
 const dir = args.dir ? resolve(args.dir) : fileURLToPath(new URL('./replays/', import.meta.url));
 const limit = args.limit ? Number(args.limit) : Infinity;
@@ -68,33 +73,83 @@ function fit(xs: number[], ys: number[]) {
   return { a: my - b * mx, b };
 }
 
-// Warm up the JIT so the first file isn't penalised.
-const warm = readFileSync(join(dir, files[0]));
-for (let i = 0; i < 3; i++) parseReplay(warm);
+/** Median parse times for one file, with and without names. */
+function timeFile(buf: Buffer): { ms: number; msNoNames: number } {
+  return {
+    ms: median(Array.from({ length: runs }, () => time(() => parseReplay(buf)))),
+    msNoNames: median(Array.from({ length: runs }, () => time(() => parseReplay(buf, { names: false })))),
+  };
+}
 
-const rows: Row[] = [];
-const started = performance.now();
-for (const [i, file] of files.entries()) {
+/** Sizes and memory for one file, plus parse times unless `timed` is false (filled in later by the parent). */
+function measure(file: string, label: string, timed = true): Row | null {
   const path = join(dir, file);
   const buf = readFileSync(path);
   const rpd = readZip(buf).get('replay.rpd');
-  if (!rpd) { console.log(`${file}: no replay.rpd, skipped`); continue; }
+  if (!rpd) { console.error(`${file}: no replay.rpd, skipped`); return null; }
   let rep;
-  try { rep = parseReplay(buf); } catch (e) { console.log(`${file}: ${(e as Error).message}, skipped`); continue; }
+  try { rep = parseReplay(buf); } catch (e) { console.error(`${file}: ${(e as Error).message}, skipped`); return null; }
   let records = 0;
   for (const p of rep.players.values()) records += p.records.length;
   const jsonBytes = Buffer.byteLength(toJSON(rep));
   rep = undefined;
-  const ms = median(Array.from({ length: runs }, () => time(() => parseReplay(buf))));
-  const msNoNames = median(Array.from({ length: runs }, () => time(() => parseReplay(buf, { names: false }))));
+  const { ms, msNoNames } = timed ? timeFile(buf) : { ms: NaN, msNoNames: NaN };
   const row: Row = {
     file, rrfBytes: buf.length, rpdBytes: rpd().length, records, jsonBytes, ms, msNoNames,
     retainedMB: retainedMB(buf, true), retainedMBNoNames: retainedMB(buf, false), peakRssMB: peakRssMB(path),
   };
-  rows.push(row);
-  console.log(`[${i + 1}/${files.length}] ${file.padEnd(14)} rrf ${(row.rrfBytes / 1e6).toFixed(2).padStart(5)} MB  ` +
-    `rpd ${(row.rpdBytes / 1e6).toFixed(2).padStart(6)} MB  ${ms.toFixed(1).padStart(6)} ms  ` +
+  console.error(`${label} ${file.padEnd(14)} rrf ${(row.rrfBytes / 1e6).toFixed(2).padStart(5)} MB  ` +
+    `rpd ${(row.rpdBytes / 1e6).toFixed(2).padStart(6)} MB  ${timed ? `${ms.toFixed(1).padStart(6)} ms  ` : ''}` +
     `retained ${row.retainedMB.toFixed(1).padStart(6)} MB  peak +${row.peakRssMB.toFixed(0).padStart(4)} MB  ${records} records`);
+  return row;
+}
+
+function warmUp() {
+  // Warm up the JIT so the first file isn't penalised.
+  const warm = readFileSync(join(dir, files[0]));
+  for (let i = 0; i < 3; i++) parseReplay(warm);
+}
+
+if (shard !== null) {
+  warmUp();
+  const mine = files.filter((_, i) => i % jobs === shard);
+  for (const [i, file] of mine.entries()) {
+    const row = measure(file, `[w${shard} ${i + 1}/${mine.length}]`, false);
+    if (row) process.stdout.write(JSON.stringify(row) + '\n');
+  }
+  process.exit(0);
+}
+
+function runWorker(k: number): Promise<Row[]> {
+  const argv = [fileURLToPath(import.meta.url), String(runs), '--dir', dir, '--jobs', String(jobs), '--shard', String(k)];
+  if (args.limit) argv.push('--limit', args.limit);
+  return new Promise((resolveRows, reject) => {
+    const child = spawn(process.execPath, argv, { stdio: ['ignore', 'pipe', 'inherit'] });
+    let out = '';
+    child.stdout.setEncoding('utf8').on('data', (d: string) => { out += d; });
+    child.on('error', reject);
+    child.on('exit', (code) => code === 0
+      ? resolveRows(out.split('\n').filter(Boolean).map((l) => JSON.parse(l) as Row))
+      : reject(new Error(`bench worker ${k} exited with ${code}`)));
+  });
+}
+
+const started = performance.now();
+let rows: Row[] = [];
+if (jobs > 1) {
+  rows = (await Promise.all(Array.from({ length: jobs }, (_, k) => runWorker(k)))).flat();
+  rows.sort((a, b) => a.file.localeCompare(b.file));
+  warmUp();
+  for (const [i, row] of rows.entries()) {
+    Object.assign(row, timeFile(readFileSync(join(dir, row.file))));
+    console.error(`[time ${i + 1}/${rows.length}] ${row.file.padEnd(14)} ${row.ms.toFixed(1).padStart(6)} ms`);
+  }
+} else {
+  warmUp();
+  for (const [i, file] of files.entries()) {
+    const row = measure(file, `[${i + 1}/${files.length}]`);
+    if (row) rows.push(row);
+  }
 }
 sink = undefined;
 
@@ -169,7 +224,7 @@ writeFileSync(new URL('parse-time.svg', outDir), scatter({
 }));
 writeFileSync(new URL('memory.svg', outDir), scatter({
   title: 'mcsrr-rrf-parser: memory vs .rrf file size',
-  subtitle: `${n} replays · retained median ${stats.medianRetainedMB.toFixed(0)} MB, max ${stats.maxRetainedMB.toFixed(0)} MB · peak RSS +${stats.medianPeakRssMB.toFixed(0)} MB median, +${stats.maxPeakRssMB.toFixed(0)} MB max · ${stats.retainedFit} · Node ${process.version}`,
+  subtitle: `${n} replays · retained median ${stats.medianRetainedMB.toFixed(0)} MB, max ${stats.maxRetainedMB.toFixed(0)} MB · peak RSS +${stats.medianPeakRssMB.toFixed(0)} MB median, +${stats.maxPeakRssMB.toFixed(0)} MB max · Node ${process.version}`,
   xLabel: '.rrf file size (MB)',
   yLabel: 'memory (MB)',
   series: [

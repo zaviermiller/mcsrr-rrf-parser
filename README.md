@@ -175,6 +175,32 @@ console.log(opened.errors);   // filled while iterating
   `DECODERS`, the delta tracking, the container and codec helpers, the raw mod data (`MOD_DATA`) and more. That subpath
   has no stability guarantees.
 
+## Performance
+
+Measured on 1,285 ranked replays played between October 30 and November 7, 2026, on an Apple M5 Max with Node.js
+24.18. Each parse time is the median of 3 runs.
+
+| | Median | p95 | Max |
+| --- | --: | --: | --: |
+| `.rrf` file size | 0.93 MB | 2.05 MB | 3.36 MB |
+| Records | 169k | 367k | 679k |
+| Parse time | 43 ms | 95 ms | 193 ms |
+| Parse time, `names: false` | 33 ms | 75 ms | 144 ms |
+| Memory held by the `Replay` | 64 MB | 141 MB | 257 MB |
+| Memory held, `names: false` | 56 MB | 123 MB | 225 MB |
+| Peak RSS increase | 135 MB | 271 MB | 396 MB |
+| JSON output | 44 MB | 98 MB | 180 MB |
+
+Both time and memory grow linearly with file size: about 47 ms per MB of `replay.rpd`, and about 67 MB held per MB
+of `.rrf`. Most of that memory is the records themselves, so if you only need some of them, use `onRecord` or
+`openReplay().records()` instead of keeping the whole `Replay`.
+
+![Parse time against replay.rpd size](bench/parse-time.svg)
+
+![Memory against .rrf file size](bench/memory.svg)
+
+The numbers for every replay are in [bench/results.csv](bench/results.csv).
+
 ## Updating for a new mod version
 
 The mod-specific knowledge lives in three places:
@@ -226,7 +252,12 @@ npm run bench:download -- --user <nickname>   # all of a player's matches that h
 npm run bench:download -- 50                  # or the 50 most recent ranked matches with a replay
 npm run bench                                 # writes bench/results.csv, bench/parse-time.svg and bench/memory.svg
 npm run bench -- 5 --dir path/to/replays      # median of 5 runs, replays from another folder (--limit N for a subset)
+npm run bench -- 3 --jobs 4                   # memory measured in 4 worker processes
 ```
+
+`--jobs` only parallelizes the memory measurements. Parse times are still measured one file at a time afterwards,
+because parses running side by side slow each other down. The [Performance](#performance) numbers come from
+`npm run bench -- 3 --jobs 4`.
 
 The replay host allows only about 3 downloads every 5 minutes. The downloader waits whenever it is rate-limited and
 skips files it already has, so it can be stopped and restarted.
