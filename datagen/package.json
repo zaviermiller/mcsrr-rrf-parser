@@ -1,0 +1,16 @@
+{
+  "name": "mcsrr-rrf-datagen",
+  "private": true,
+  "description": "Maintainer tool: regenerates the parser's data/*.json from the MCSR Ranked mod jar and Minecraft 1.16.1 jars.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "mod": "node src/mod.ts",
+    "mc": "node src/mc.ts",
+    "test": "node --test \"test/*.test.ts\"",
+    "typecheck": "tsc -p ."
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

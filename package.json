@@ -1,0 +1,69 @@
+{
+  "name": "mcsrr-rrf-parser",
+  "version": "1.0.0",
+  "description": "Offline parser for MCSR Ranked .rrf replay files (Minecraft 1.16.1), with a CLI and a TypeScript/Node.js API",
+  "keywords": [
+    "minecraft",
+    "mcsr",
+    "mcsr-ranked",
+    "speedrun",
+    "replay",
+    "rrf",
+    "parser"
+  ],
+  "homepage": "https://github.com/zaviermiller/mcsrr-rrf-parser#readme",
+  "bugs": {
+    "url": "https://github.com/zaviermiller/mcsrr-rrf-parser/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zaviermiller/mcsrr-rrf-parser.git"
+  },
+  "author": "Zavier Miller",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./internals": {
+      "types": "./dist/internals.d.ts",
+      "default": "./dist/internals.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "mcsrr-rrf": "dist/bin/mcsrr-rrf.js"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "data/",
+    "docs/"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc",
+    "test": "node --test \"test/*.test.ts\"",
+    "prepack": "npm run build",
+    "bench:download": "node bench/download.ts",
+    "bench": "node bench/bench.ts",
+    "datagen:mod": "node datagen/src/mod.ts",
+    "datagen:mc": "node datagen/src/mc.ts",
+    "datagen:test": "cd datagen && node --test \"test/*.test.ts\" && tsc -p .",
+    "prepublishOnly": "npm run typecheck && npm test"
+  },
+  "engines": {
+    "node": ">=22.15.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2"
+  }
+}

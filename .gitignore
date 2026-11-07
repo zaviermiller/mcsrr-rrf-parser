@@ -1,0 +1,9 @@
+node_modules/
+*.rrf
+*.jar
+*.tgz
+dist/
+bench/replays/
+bench/results.csv
+bench/parse-time.svg
+bench/memory.svg
