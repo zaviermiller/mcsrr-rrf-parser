@@ -374,11 +374,17 @@ export const DECODERS: Readonly<Record<string, Decoder>> = {
     return { world: null, data: { nodes } };
   },
   'DragonZeroTimeLine.DragonZero': (r) => {
-    if (r.i8() === 1) {
-      return { world: null, data: { flewAway: true, spawnYaw: 0, node: -1, target: { x: 0, y: 0, z: 0 }, clockwise: false } };
+    const tag = r.i8();
+    if (tag === 1 || tag === 2) {
+      // 2 = FLEW_AWAY_WITH_HEIGHT (mod 6.0.9+, still format version 40, so the tag is the only way to tell); NaN = no height.
+      const h = tag === 2 ? r.f32() : NaN;
+      return {
+        world: null,
+        data: { flewAway: true, flyAwayHeight: Number.isNaN(h) ? null : h, spawnYaw: 0, node: -1, target: { x: 0, y: 0, z: 0 }, clockwise: false },
+      };
     }
     const spawnYaw = r.f32(); const node = r.i8(); const target = vec3f(r); const clockwise = r.bool();
-    return { world: null, data: { flewAway: false, spawnYaw, node, target, clockwise } };
+    return { world: null, data: { flewAway: false, flyAwayHeight: null, spawnYaw, node, target, clockwise } };
   },
   'DragonDamageTimeLine.DragonDamage': (r) => {
     const source = enumAt(ENUMS.DragonDamageSource, r.i8(), 'DragonDamageTimeLine.Source');

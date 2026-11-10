@@ -102,6 +102,11 @@ const OP_SAMPLES: Readonly<Record<string, readonly number[]>> = {
   'PiglinBarterTimeLine.PiglinBarter': [0, 0, 0, 0, 0, 1],
   'InventorySlotTimeLine.InventorySlot': [0, 0, 0, 0, 0, 0, 1],
 };
+// Factories whose reads sit in separate if/else branches. factoryReads lists them in bytecode order, so each
+// sample takes one branch (in that order) and the reads after the `shared` leading ones are concatenated.
+const OP_BRANCHES: Readonly<Record<string, { shared: number; samples: readonly (readonly number[])[] }>> = {
+  'DragonZeroTimeLine.DragonZero': { shared: 1, samples: [[2], [0]] },
+};
 // PieChartNames.read is variable length, so this factory can't be replayed through its decoder; its
 // sequence is pinned instead (decoders.ts pieChartName = PieChartNames.read).
 const FIXED_READS: Readonly<Record<string, readonly string[]>> = {
@@ -110,21 +115,31 @@ const FIXED_READS: Readonly<Record<string, readonly string[]>> = {
 
 /** Runs a decoder on a buffer sized for `expected` and logs which ByteBuffer-equivalent reads it makes. */
 function decoderReads(decoders: Readonly<Record<string, P.Decoder>>, ref: string, expected: readonly string[]): string[] {
-  const buf = Buffer.alloc(expected.reduce((n, op) => n + (OP_SIZES[op as BufferOp] || 0), 0));
-  Buffer.from(OP_SAMPLES[ref] || []).copy(buf);
-  const r = new P.Reader(buf);
-  const log: string[] = [];
-  const methods = r as unknown as Record<string, (...a: unknown[]) => unknown>;
-  for (const [k, op] of Object.entries(READER_OPS)) {
-    const f = methods[k]!.bind(r);
-    methods[k] = (...a) => { log.push(op); return f(...a); };
-  }
-  try {
-    decoders[ref]!(r, new P.DeltaPositions());
-  } catch (e) {
-    log.push(`error: ${(e as Error).message}`);
-  }
-  if (r.remaining) log.push(`${r.remaining} byte(s) left unread`);
+  const size = expected.reduce((n, op) => n + (OP_SIZES[op as BufferOp] || 0), 0);
+  const run = (sample: readonly number[]): { log: string[]; read: number } => {
+    const buf = Buffer.alloc(size);
+    Buffer.from(sample).copy(buf);
+    const r = new P.Reader(buf);
+    const log: string[] = [];
+    const methods = r as unknown as Record<string, (...a: unknown[]) => unknown>;
+    for (const [k, op] of Object.entries(READER_OPS)) {
+      const f = methods[k]!.bind(r);
+      methods[k] = (...a) => { log.push(op); return f(...a); };
+    }
+    try {
+      decoders[ref]!(r, new P.DeltaPositions());
+    } catch (e) {
+      log.push(`error: ${(e as Error).message}`);
+    }
+    return { log, read: size - r.remaining };
+  };
+  const branches = OP_BRANCHES[ref];
+  const runs = branches ? branches.samples.map(run) : [run(OP_SAMPLES[ref] || [])];
+  const shared = branches?.shared ?? 0;
+  const sharedBytes = runs[0]!.log.slice(0, shared).reduce((n, op) => n + (OP_SIZES[op as BufferOp] || 0), 0);
+  const log = runs.flatMap((x, i) => (i === 0 ? x.log : x.log.slice(shared)));
+  const left = size - runs.reduce((n, x, i) => n + x.read - (i === 0 ? 0 : sharedBytes), 0);
+  if (left) log.push(`${left} byte(s) left unread`);
   return log;
 }
 

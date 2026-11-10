@@ -1,7 +1,7 @@
 # MCSR Ranked `.rrf` replay format
 
 This is the byte-level description that `mcsrr-rrf-parser` implements, for MCSR Ranked on **Minecraft 1.16.1**
-(currently mod version 6.0.4). It was worked out from the mod's classes. Class names in this document refer to classes in the mod jar, under
+(currently mod version 6.0.11). It was worked out from the mod's classes. Class names in this document refer to classes in the mod jar, under
 `com/mcsrranked/client/anticheat/replay/`. The parser does not need the mod jar at runtime: the mod data lives in
 `data/mcsrranked.json`, and the Minecraft 1.16.1 data lives in `data/mc_1_16_1.json` (see §7).
 
@@ -28,8 +28,9 @@ payload must be decoded exactly.
 
 | Field | Notes |
 |---|---|
-| `version` | Selects framing, encryption and codec. |
+| `version` | Selects framing, encryption and codec. Mod 6.0.9 changed the `DRAGON_ZERO` layout and added `raceId` without bumping it from 40, so a v40 file may come from either 6.0.0–6.0.4 or 6.0.9+. Both are read the same way (see type 88). |
 | `matchId`, `date`, `matchType` | |
+| `raceId` | Weekly race id. Present in race replays from mod 6.0.9 on, which have no `matchId`. |
 | `overworldSeed`, `netherSeed`, `theEndSeed` | Java `long`. The parser reads them losslessly and exposes them as decimal strings. |
 | `symmetricKey` | Base64 (`Base64.getDecoder()`). Present when `version < 40`. |
 | `players[]` | `{uuid, nickname, roleType, eloRate, eloRank, country}`. |
@@ -207,7 +208,7 @@ Payload sizes are in bytes, and `+n×k` means a variable repeat.
 | 85 | DRAGON_DEATH | | `u8` (ignored) | 1 | `DragonDeathTimeLine.DragonDeath` |
 | 86 | DRAGON_DEATH_PROGRESS | | `i16 progress`, `i8 phase` | 3 | `DragonDeathProgressTimeLine.DragonDeathProgress` |
 | 87 | DRAGON_NODES | | `u8 n`, `n × BP` | 1+8n | `DragonNodesTimeLine.DragonNodes` |
-| 88 | DRAGON_ZERO | | `i8 flewAway`; if `!= 1`: `f32 spawnYaw`, `i8 node`, `pos3f target`, `i8 clockwise` | 1 or 19 | `DragonZeroTimeLine.DragonZero` |
+| 88 | DRAGON_ZERO | | `i8 tag`; `1` = flew away; `2` = flew away, then `f32 flyAwayHeight` (6.0.9+, may be NaN); otherwise `f32 spawnYaw`, `i8 node`, `pos3f target`, `i8 clockwise` | 1, 5 or 19 | `DragonZeroTimeLine.DragonZero` |
 | 89 | DRAGON_DAMAGE | | `i8 source` (`Source`), `u16 amount×100` | 3 | `DragonDamageTimeLine.DragonDamage` |
 | 90 | DRAGON_TARGET | | `i8 has`; if `≠ 0`: `pos3f` | 1 or 13 | `DragonTargetTimeLine.DragonTarget` |
 | 91 | DRAGON_PATH | | `i8 phase`, `u8 n`, `n ×` (`u8 node`; if `node == 255`: `BP`) | var | `DragonPathTimeLine.DragonPath` |

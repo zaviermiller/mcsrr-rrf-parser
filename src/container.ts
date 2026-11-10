@@ -102,6 +102,7 @@ interface RawPlayer {
 export interface RawMeta {
   version?: number;
   matchId?: number;
+  raceId?: number;
   date?: number;
   matchType?: number;
   overworldSeed?: JsonLong;
@@ -141,6 +142,7 @@ export function normalizeMeta(raw: RawMeta): ReplayMeta {
       fileVersion,
       migratedFromUnder30: true,
       matchId: null,
+      raceId: null,
       date: raw.time ?? 0,
       matchType: raw.matchType ?? 0,
       overworldSeed: seed(raw.seed),
@@ -158,6 +160,7 @@ export function normalizeMeta(raw: RawMeta): ReplayMeta {
     fileVersion,
     migratedFromUnder30: false,
     matchId: raw.matchId ?? null,
+    raceId: raw.raceId ?? null,
     date: raw.date ?? 0,
     matchType: raw.matchType ?? 0,
     overworldSeed: seed(raw.overworldSeed),

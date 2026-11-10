@@ -2,7 +2,7 @@
 
 This document describes what each record type in an MCSR Ranked replay means: when the mod emits it, what each
 `record.data` field holds (including units and special values), and how it relates to other records. It applies to
-MCSR Ranked on **Minecraft 1.16.1** (mod version 6.0.4). You don't need the mod source or the mod jar to use it.
+MCSR Ranked on **Minecraft 1.16.1** (mod version 6.0.11). You don't need the mod source or the mod jar to use it.
 
 For the byte layout, see [FORMAT.md](FORMAT.md). For the TypeScript shapes, see `src/types.ts`; every `data` field
 listed here appears there under the same name.
@@ -401,7 +401,7 @@ Dragon records only appear in the End, in the stream of the player recording the
 | `DRAGON_NODES` | Emitted once: the dragon's pathfinding graph, an array of block positions. Indexes into it are used by `DRAGON_PATH` and `DRAGON_ZERO`. |
 | `DRAGON_PATH` | The dragon picked a new flight path. `phase` = the current phase id. `nodes` = node indexes into `DRAGON_NODES`, in order. A node of 255 is a one-off point given in `pos`. |
 | `DRAGON_TARGET` | The point the dragon's AI is flying towards (`target`), or `null` if it has none. |
-| `DRAGON_ZERO` | A "zero cycle" chance (the dragon heading to perch from one of the nodes next to the fountain). The first record has `flewAway: false`, and gives `node` (15, 19, 20 or 22), `target`, `clockwise` (holding-pattern direction) and `spawnYaw` (the dragon's yaw when first seen, in degrees). A later record with `flewAway: true` means the chance was lost; its other fields are absent. |
+| `DRAGON_ZERO` | A "zero cycle" chance (the dragon heading to perch from one of the nodes next to the fountain). The first record has `flewAway: false`, and gives `node` (15, 19, 20 or 22), `target`, `clockwise` (holding-pattern direction) and `spawnYaw` (the dragon's yaw when first seen, in degrees). A later record with `flewAway: true` means the chance was lost; its other fields are absent. From mod 6.0.9 on it also has `flyAwayHeight`, the Y at which the dragon left the 10-block sphere around `target` (`null` in older replays, on `flewAway: false` records, or if the dragon was already 10+ blocks away). |
 | `DRAGON_DEATH` | The dragon died. |
 | `DRAGON_DEATH_PROGRESS` | Death animation progress. `progress` = ticks since death (the animation lasts 200), `phase` = phase id. |
 
@@ -412,6 +412,7 @@ Dragon records only appear in the End, in the stream of the player recording the
 | Field | Meaning |
 |---|---|
 | `matchId` | MCSR Ranked match id. |
+| `raceId` | Weekly race id for race replays (mod 6.0.9+), otherwise `null`. |
 | `date` | Match start, epoch milliseconds. |
 | `matchType` | 1 casual, 2 ranked, 3 private, 4 event, 5 rush. |
 | `overworldSeed`, `netherSeed`, `theEndSeed` | Seeds as decimal strings. |

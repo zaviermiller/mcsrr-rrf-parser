@@ -1,6 +1,6 @@
 {
   "name": "mcsrr-rrf-parser",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Offline parser for MCSR Ranked .rrf replay files (Minecraft 1.16.1), with a CLI and a TypeScript/Node.js API",
   "keywords": [
     "minecraft",

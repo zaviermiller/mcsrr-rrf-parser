@@ -170,6 +170,27 @@ test('v40 file: zstd + snappy chunks, players grouped with nicknames, per-UUID d
   assert.deepEqual(s.issues, []);
 });
 
+test('v40 files from mod 6.0.0-6.0.4 and 6.0.9+ both parse (same version number, different DRAGON_ZERO layout)', () => {
+  const reached = w().i8(0).f32(45).i8(3).f32(1).f32(2).f32(3).i8(1).bytes();
+  const file = (flewAway: Buffer, metaExtra: string) => buildZip({
+    'meta.json': metaJson(40, metaExtra),
+    'replay.rpd': lengthPrefixed([P.zstdCompress(buildChunk(ALICE, [
+      { type: T('DRAGON_ZERO'), tick: 10, payload: reached },
+      { type: T('DRAGON_ZERO'), tick: 20, payload: flewAway },
+      { type: T('PLAYER_HELD_SLOT'), tick: 30, payload: held(2) },
+    ]))]),
+  });
+  const zeros = (rep: P.Replay) => rep.findPlayer(ALICE)!.records.map((r) => [r.type, (r.data as { flyAwayHeight?: number | null }).flyAwayHeight]);
+
+  const old = P.parseRrf(file(w().i8(1).bytes(), ''));
+  assert.deepEqual([old.errors, old.warnings, old.meta.version, old.meta.raceId], [[], [], 40, null]);
+  assert.deepEqual(zeros(old), [['DRAGON_ZERO', null], ['DRAGON_ZERO', null], ['PLAYER_HELD_SLOT', undefined]]);
+
+  const cur = P.parseRrf(file(w().i8(2).f32(68.25).bytes(), ', "raceId": 77'));
+  assert.deepEqual([cur.errors, cur.warnings, cur.meta.version, cur.meta.raceId], [[], [], 40, 77]);
+  assert.deepEqual(zeros(cur), [['DRAGON_ZERO', null], ['DRAGON_ZERO', 68.25], ['PLAYER_HELD_SLOT', undefined]]);
+});
+
 test('type filter and onRecord streaming', () => {
   const rep = P.parseRrf(v40File({ deflate: false }), { types: new Set(['PLAYER_POSITION_POS_DELTA', 'PLAYER_PAUSE']) });
   assert.deepEqual(rep.findPlayer('Alice')!.records.map((r) => r.wireType), ['PLAYER_POSITION_POS_DELTA']);

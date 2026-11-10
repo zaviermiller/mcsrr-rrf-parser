@@ -1,5 +1,5 @@
 {
-  "modVersion": "6.0.4",
+  "modVersion": "6.0.11",
   "replayPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvrJFV3KHy8jXWTok/3R3CHLqY6PPXoGjx8vCaAzuZgW/7ZP6Dp95IkSEQioszuYJs6yawag+rZVzuVMjtZ9v8jVXeBw+nZdftsiSIJjOrL7BpJksBOGrKQp54SSV5Jel9ZVLff640lq5xMk/GgD+1hFtlBowd0deo9Y97GPRnmye9NpjCRQ5LZbOU9qxfDYNjjcjyc9EmAzSbWqZNfhjMBAAT2XoEeTKxCwNW6BQ+UriL7b58nfV1bBG11bFR2fXPlkYCqjS1HEpsFPawwod58pZ75Aa7kvlTeOJ4MCejF2UBWLVrXK7BDyRyUqBcQHRheX9BOxOU5GDa5fjSGOZBwIDAQAB",
   "worlds": ["OVERWORLD","NETHER","END"],
   "timelineTypes": [
@@ -210,7 +210,7 @@
     "DragonPhaseTimeLine.DragonPhase": ["get"],
     "DragonPositionTimeLine.DragonPosition": ["getFloat","getFloat","getFloat","getShort","getShort"],
     "DragonTargetTimeLine.DragonTarget": ["get","getFloat","getFloat","getFloat"],
-    "DragonZeroTimeLine.DragonZero": ["get","getFloat","get","getFloat","getFloat","getFloat","get"],
+    "DragonZeroTimeLine.DragonZero": ["get","getFloat","getFloat","get","getFloat","getFloat","getFloat","get"],
     "EmptyTimeLine.Empty": ["get"],
     "EntityAddTimeLine.EntityAdd": [
       "get", "getFloat", "getFloat", "getFloat", "getShort", "getShort", "getInt", "getInt", "getInt"

@@ -208,8 +208,11 @@ export interface DragonCrystalUpdateData { crystalIndex: number }
 /** progress = ticks since death (animation lasts 200). */
 export interface DragonDeathProgressData { progress: number; phase: number }
 export interface DragonNodesData { nodes: BlockPos[] }
-/** Zero-cycle opportunity; flewAway=true means it was lost (other fields absent). */
-export interface DragonZeroData { flewAway: boolean; spawnYaw: number; node: number; target: Vec3; clockwise: boolean }
+/**
+ * Zero-cycle opportunity; flewAway=true means it was lost (other fields absent). flyAwayHeight = Y where the
+ * dragon left the 10-block sphere around the zero target (mod 6.0.9+, flewAway only; otherwise null).
+ */
+export interface DragonZeroData { flewAway: boolean; flyAwayHeight: number | null; spawnYaw: number; node: number; target: Vec3; clockwise: boolean }
 /** amount = health points lost. */
 export interface DragonDamageData { source: DragonDamageSource; amount: number }
 export interface DragonTargetData { target: Vec3 | null }
@@ -358,6 +361,8 @@ export interface ReplayMeta {
   fileVersion: number;
   migratedFromUnder30: boolean;
   matchId: number | null;
+  /** Weekly race id (mod 6.0.9+); null for other replays. */
+  raceId: number | null;
   /** Match start, epoch milliseconds. */
   date: number;
   /** 1 casual, 2 ranked, 3 private, 4 event, 5 rush. */

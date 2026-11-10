@@ -3,7 +3,7 @@
 An offline parser for [MCSR Ranked](https://mcsrranked.com) `.rrf` replay files, with a command-line tool and a typed
 TypeScript/Node.js API.
 
-- It targets **MCSR Ranked 6.0.4** on **Minecraft 1.16.1**, and it also reads older replays back to format version 20,
+- It targets **MCSR Ranked 6.0.11** on **Minecraft 1.16.1**, and it also reads older replays back to format version 20,
   including the legacy encrypted ones.
 - It runs fully offline and has no runtime dependencies. The mod data it needs is in `data/mcsrranked.json`, and the vanilla
   1.16.1 registries and block states are in `data/mc_1_16_1.json`. Both ship with the package.
